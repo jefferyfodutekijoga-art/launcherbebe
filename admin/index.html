@@ -355,6 +355,97 @@
     .emoji-option input {
       display: none;
     }
+
+    .gist-config {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-top: 24px;
+    }
+
+    .gist-config h3 {
+      color: var(--text);
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .gist-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: 10px;
+    }
+
+    .gist-status.connected {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .gist-status.disconnected {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+    }
+
+    .gist-status.publishing {
+      background: rgba(168, 85, 247, 0.15);
+      color: var(--accent);
+    }
+
+    .btn-publish {
+      background: linear-gradient(135deg, #10b981, #22c55e);
+      color: #fff;
+      width: 100%;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.35);
+    }
+
+    .btn-publish:hover {
+      filter: brightness(1.1);
+    }
+
+    .btn-publish:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .publish-info {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    .collapsible-section {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .collapsible-section:hover h3 {
+      color: var(--accent);
+    }
+
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .collapsible-content.open {
+      max-height: 500px;
+    }
+
+    .toggle-icon {
+      float: right;
+      transition: transform 0.3s;
+    }
+
+    .toggle-icon.open {
+      transform: rotate(180deg);
+    }
   </style>
 </head>
 <body>
@@ -458,21 +549,56 @@
 }</div>
         </div>
 
+        <!-- Gist Configuration -->
+        <div class="gist-config">
+          <div class="collapsible-section" id="gistConfigHeader">
+            <h3>
+              ⚙️ Настройка GitHub Gist
+              <span class="gist-status disconnected" id="gistStatus">Не настроено</span>
+              <span class="toggle-icon" id="toggleIcon">▼</span>
+            </h3>
+          </div>
+          <div class="collapsible-content" id="gistConfigContent">
+            <div class="form-group">
+              <label for="githubToken">GitHub Personal Access Token</label>
+              <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxx">
+              <small style="font-size: 11px; color: var(--muted); display: block; margin-top: 4px;">
+                Создайте токен с правами gist на <a href="https://github.com/settings/tokens/new" target="_blank" style="color: var(--accent);">github.com/settings/tokens</a>
+              </small>
+            </div>
+            <div class="form-group">
+              <label for="gistId">Gist ID</label>
+              <input type="text" id="gistId" placeholder="a1b2c3d4e5f6g7h8i9j0">
+              <small style="font-size: 11px; color: var(--muted); display: block; margin-top: 4px;">
+                ID из URL вашего Gist (например: gist.github.com/username/<strong>gist_id</strong>)
+              </small>
+            </div>
+            <button class="btn btn-primary" id="saveGistConfig" style="width: 100%;">💾 Сохранить настройки</button>
+          </div>
+        </div>
+
+        <!-- Publish Button -->
         <div class="btn-group">
+          <button class="btn btn-publish" id="publishBtn" disabled>
+            🚀 Опубликовать в Gist
+          </button>
+        </div>
+        <div class="publish-info" id="publishInfo">
+          Настройте GitHub Gist для автоматической публикации
+        </div>
+
+        <div class="btn-group" style="margin-top: 16px;">
           <button class="btn btn-success" id="downloadBtn">💾 Скачать JSON</button>
           <button class="btn btn-danger" id="clearAll">🗑️ Очистить всё</button>
         </div>
 
         <div class="instructions">
-          <h3>📖 Как использовать:</h3>
+          <h3>📖 Инструкция:</h3>
           <ol>
             <li>Добавьте новости используя форму слева</li>
-            <li>Скопируйте сгенерированный JSON</li>
-            <li>Перейдите в <a href="https://gist.github.com" target="_blank">GitHub Gist</a></li>
-            <li>Создайте или обновите файл <code>news.json</code></li>
-            <li>Вставьте JSON и сохраните</li>
-            <li>Скопируйте Raw URL вашего Gist</li>
-            <li>Вставьте URL в <code>src/scripts/news.js</code> (GIST_URL)</li>
+            <li><strong>Автоматически:</strong> Настройте GitHub Gist и публикуйте одной кнопкой</li>
+            <li><strong>Вручную:</strong> Скопируйте JSON и обновите <a href="https://gist.github.com" target="_blank">ваш Gist</a></li>
+            <li>Лаунчер автоматически получит обновления в течение 5 минут</li>
           </ol>
         </div>
       </div>
@@ -487,6 +613,12 @@
       news: []
     };
 
+    // Gist configuration storage
+    let gistConfig = {
+      token: '',
+      gistId: ''
+    };
+
     // DOM Elements
     const form = document.getElementById('newsForm');
     const jsonOutput = document.getElementById('jsonOutput');
@@ -496,6 +628,17 @@
     const clearAll = document.getElementById('clearAll');
     const clearForm = document.getElementById('clearForm');
     const emojiOptions = document.querySelectorAll('.emoji-option');
+    
+    // Gist DOM Elements
+    const gistConfigHeader = document.getElementById('gistConfigHeader');
+    const gistConfigContent = document.getElementById('gistConfigContent');
+    const toggleIcon = document.getElementById('toggleIcon');
+    const githubToken = document.getElementById('githubToken');
+    const gistId = document.getElementById('gistId');
+    const saveGistConfig = document.getElementById('saveGistConfig');
+    const publishBtn = document.getElementById('publishBtn');
+    const publishInfo = document.getElementById('publishInfo');
+    const gistStatus = document.getElementById('gistStatus');
 
     // Emoji map
     const emojiMap = {
@@ -711,8 +854,137 @@
       }, 2500);
     }
 
+    // ========================================
+    // GitHub Gist Integration
+    // ========================================
+
+    // Load Gist configuration
+    function loadGistConfig() {
+      const saved = localStorage.getItem('robbob_gist_config');
+      if (saved) {
+        try {
+          gistConfig = JSON.parse(saved);
+          githubToken.value = gistConfig.token || '';
+          gistId.value = gistConfig.gistId || '';
+          updateGistStatus();
+        } catch (e) {
+          console.error('Error loading Gist config:', e);
+        }
+      }
+    }
+
+    // Save Gist configuration
+    function saveGistConfigToStorage() {
+      const token = githubToken.value.trim();
+      const id = gistId.value.trim();
+      
+      if (!token || !id) {
+        showToast('Заполните все поля настройки');
+        return;
+      }
+
+      gistConfig = { token, gistId: id };
+      localStorage.setItem('robbob_gist_config', JSON.stringify(gistConfig));
+      updateGistStatus();
+      showToast('Настройки Gist сохранены!');
+    }
+
+    // Update Gist status indicator
+    function updateGistStatus() {
+      const isConfigured = gistConfig.token && gistConfig.gistId;
+      
+      if (isConfigured) {
+        gistStatus.textContent = '✓ Настроено';
+        gistStatus.className = 'gist-status connected';
+        publishBtn.disabled = false;
+        publishInfo.textContent = 'Готово к публикации';
+      } else {
+        gistStatus.textContent = 'Не настроено';
+        gistStatus.className = 'gist-status disconnected';
+        publishBtn.disabled = true;
+        publishInfo.textContent = 'Настройте GitHub Gist для автоматической публикации';
+      }
+    }
+
+    // Toggle Gist configuration section
+    gistConfigHeader.addEventListener('click', () => {
+      const isOpen = gistConfigContent.classList.toggle('open');
+      toggleIcon.classList.toggle('open', isOpen);
+    });
+
+    // Save Gist config button
+    saveGistConfig.addEventListener('click', saveGistConfigToStorage);
+
+    // Publish to GitHub Gist
+    async function publishToGist() {
+      if (!gistConfig.token || !gistConfig.gistId) {
+        showToast('Настройте GitHub Gist перед публикацией');
+        return;
+      }
+
+      // Update status
+      publishBtn.disabled = true;
+      publishBtn.textContent = '⏳ Публикация...';
+      publishInfo.textContent = 'Отправка данных на GitHub...';
+      gistStatus.textContent = '⏳ Публикация';
+      gistStatus.className = 'gist-status publishing';
+
+      try {
+        // Prepare the JSON content
+        const jsonContent = JSON.stringify(newsData, null, 2);
+
+        // GitHub Gist API endpoint
+        const apiUrl = `https://api.github.com/gists/${gistConfig.gistId}`;
+
+        // Make the PATCH request to update the Gist
+        const response = await fetch(apiUrl, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `token ${gistConfig.token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            files: {
+              'news.json': {
+                content: jsonContent
+              }
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        // Success!
+        showToast('✅ Новости опубликованы в Gist!');
+        publishInfo.innerHTML = `
+          Опубликовано: ${new Date().toLocaleTimeString('ru-RU')} |
+          <a href="${data.html_url}" target="_blank" style="color: var(--accent);">Открыть Gist</a>
+        `;
+        updateGistStatus();
+
+      } catch (error) {
+        console.error('Error publishing to Gist:', error);
+        showToast('❌ Ошибка публикации: ' + error.message);
+        publishInfo.textContent = 'Ошибка публикации. Проверьте настройки.';
+        updateGistStatus();
+      } finally {
+        publishBtn.disabled = false;
+        publishBtn.textContent = '🚀 Опубликовать в Gist';
+      }
+    }
+
+    // Publish button click handler
+    publishBtn.addEventListener('click', publishToGist);
+
     // Initialize
     loadData();
+    loadGistConfig();
   </script>
 </body>
 </html>
