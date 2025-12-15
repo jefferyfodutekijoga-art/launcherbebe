@@ -262,8 +262,15 @@ const TelegramUI = {
 
   /**
    * Скрыть модальное окно
+   * Не закрывается если включен обязательный режим
    */
   hideModal() {
+    // Блокируем закрытие в обязательном режиме
+    if (this.mandatoryMode) {
+      console.log('Cannot close modal in mandatory mode');
+      return;
+    }
+    
     if (this.elements.modal) {
       this.elements.modal.classList.remove('open');
     }
