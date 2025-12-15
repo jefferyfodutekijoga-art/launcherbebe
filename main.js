@@ -1186,8 +1186,16 @@ ipcMain.on('window-close', () => {
 
 // Запуск приложения
 app.whenReady().then(() => {
-  // Инициализация GameFilter
-  GameFilter.init();
+  // Инициализация GameFilter с колбэком для отзыва доступа
+  GameFilter.init(() => {
+    console.log('Access revoked - user left Telegram channel');
+    // Останавливаем сетевой режим
+    stopBypass();
+    // Уведомляем фронтенд об отзыве доступа
+    if (mainWindow) {
+      mainWindow.webContents.send('telegram-access-revoked');
+    }
+  });
   
   createWindow();
   createTray();

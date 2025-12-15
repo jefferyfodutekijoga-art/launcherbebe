@@ -16,6 +16,9 @@ const TelegramUI = {
 
   // Статус верификации
   isVerified: false,
+  
+  // Флаг обязательной верификации
+  mandatoryMode: false,
 
   async init() {
     // Получаем элементы
@@ -32,6 +35,11 @@ const TelegramUI = {
       await this.checkStatus();
       await this.loadLinks();
       this.setupEventListeners();
+      
+      // Показываем модальное окно при старте, если не верифицирован
+      if (!this.isVerified) {
+        this.showModal(true); // true = mandatory mode
+      }
     }
   },
 
@@ -86,19 +94,31 @@ const TelegramUI = {
       this.elements.verifyBtn.addEventListener('click', () => this.verify());
     }
 
-    // Кнопка отмены
+    // Кнопка отмены - работает только если не обязательная верификация
     if (this.elements.cancelBtn) {
-      this.elements.cancelBtn.addEventListener('click', () => this.hideModal());
-    }
-
-    // Клик вне модального окна
-    if (this.elements.modal) {
-      this.elements.modal.addEventListener('click', (e) => {
-        if (e.target === this.elements.modal) {
+      this.elements.cancelBtn.addEventListener('click', () => {
+        if (!this.mandatoryMode) {
           this.hideModal();
         }
       });
     }
+
+    // Клик вне модального окна - работает только если не обязательная верификация
+    if (this.elements.modal) {
+      this.elements.modal.addEventListener('click', (e) => {
+        if (e.target === this.elements.modal && !this.mandatoryMode) {
+          this.hideModal();
+        }
+      });
+    }
+    
+    // Блокируем Escape если обязательная верификация
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.mandatoryMode && this.elements.modal?.classList.contains('open')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
 
     // Ввод кода - Enter для подтверждения
     if (this.elements.codeInput) {
@@ -136,10 +156,17 @@ const TelegramUI = {
       });
     }
 
-    // Слушаем событие от main процесса
+    // Слушаем событие от main процесса для показа модального окна
     if (window.electronAPI && window.electronAPI.onShowTelegramModal) {
       window.electronAPI.onShowTelegramModal(() => {
         this.showModal();
+      });
+    }
+    
+    // Слушаем событие отзыва доступа (когда пользователь выходит из канала)
+    if (window.electronAPI && window.electronAPI.onTelegramAccessRevoked) {
+      window.electronAPI.onTelegramAccessRevoked(() => {
+        this.revokeAccess();
       });
     }
   },
@@ -168,6 +195,7 @@ const TelegramUI = {
 
       if (result.success) {
         this.isVerified = true;
+        this.mandatoryMode = false; // Выключаем обязательный режим после успеха
         Toast.show('Доступ подтвержден!', 'success');
         this.hideModal();
         
@@ -212,10 +240,19 @@ const TelegramUI = {
 
   /**
    * Показать модальное окно
+   * @param {boolean} mandatory - Обязательная верификация (нельзя закрыть)
    */
-  showModal() {
+  showModal(mandatory = false) {
+    this.mandatoryMode = mandatory;
+    
     if (this.elements.modal) {
       this.elements.modal.classList.add('open');
+      
+      // Скрываем/показываем кнопку "Позже" в зависимости от режима
+      if (this.elements.cancelBtn) {
+        this.elements.cancelBtn.style.display = mandatory ? 'none' : 'block';
+      }
+      
       // Фокус на поле ввода
       setTimeout(() => {
         this.elements.codeInput?.focus();
@@ -225,8 +262,15 @@ const TelegramUI = {
 
   /**
    * Скрыть модальное окно
+   * Не закрывается если включен обязательный режим
    */
   hideModal() {
+    // Блокируем закрытие в обязательном режиме
+    if (this.mandatoryMode) {
+      console.log('Cannot close modal in mandatory mode');
+      return;
+    }
+    
     if (this.elements.modal) {
       this.elements.modal.classList.remove('open');
     }
@@ -237,10 +281,19 @@ const TelegramUI = {
    */
   requireVerification() {
     if (!this.isVerified) {
-      this.showModal();
+      this.showModal(true); // Показываем в обязательном режиме
       return false;
     }
     return true;
+  },
+  
+  /**
+   * Обработчик отзыва доступа (когда пользователь выходит из канала)
+   */
+  revokeAccess() {
+    this.isVerified = false;
+    this.showModal(true); // Показываем модальное окно в обязательном режиме
+    Toast.show('Доступ отозван. Пожалуйста, подтвердите подписку.', 'error');
   }
 };
 

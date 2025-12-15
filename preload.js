@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onShowTelegramModal: (callback) => {
     ipcRenderer.on('show-telegram-modal', () => callback());
   },
+  onTelegramAccessRevoked: (callback) => {
+    ipcRenderer.on('telegram-access-revoked', () => callback());
+  },
 
   // Управление окном
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
